@@ -1,3 +1,5 @@
+package com.fishinspace;
+
 import java.awt.*;
 import java.util.ArrayList;
 import javax.swing.*;
@@ -44,6 +46,7 @@ public class SpaceInvaders extends JPanel {
     int shipHeight=tileSize;//32px
     int shipX=tileSize*columns/2-tileSize;
     int shipY=boardHeight-tileSize*2;
+    Block ship;
 
 
 
@@ -53,11 +56,11 @@ public class SpaceInvaders extends JPanel {
         setPreferredSize(new Dimension(boardWidth,boardHeight));
         setBackground(new Color(0,0,30));// color manipulation of the background
 
-        shipImg=new ImageIcon(getClass().getResource("./ship.png")).getImage();
-        alienImg=new ImageIcon(getClass().getResource("./alien.png")).getImage();
-        alienCyanImg=new ImageIcon(getClass().getResource("./alien-cyan.png")).getImage();
-        alienMagentaImg=new ImageIcon(getClass().getResource("./alien-magenta.png")).getImage();
-        alienYellowImg=new ImageIcon(getClass().getResource("./alien-yellow.png")).getImage();
+        shipImg=new ImageIcon(getClass().getResource("/ship.png")).getImage();
+        alienImg=new ImageIcon(getClass().getResource("/alien.png")).getImage();
+        alienCyanImg=new ImageIcon(getClass().getResource("/alien-cyan.png")).getImage();
+        alienMagentaImg=new ImageIcon(getClass().getResource("/alien-magenta.png")).getImage();
+        alienYellowImg=new ImageIcon(getClass().getResource("/alien-yellow.png")).getImage();
 
         alienImgArray=new ArrayList<Image>();
         alienImgArray.add(alienImg);
@@ -65,7 +68,7 @@ public class SpaceInvaders extends JPanel {
         alienImgArray.add(alienMagentaImg);
         alienImgArray.add(alienYellowImg);
 
-        Block ship = new Block(shipX,shipY,shipWidth,shipHeight,shipImg);
+        ship = new Block(shipX,shipY,shipWidth,shipHeight,shipImg);
 
     }
 

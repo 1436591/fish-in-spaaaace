@@ -1,3 +1,5 @@
+package com.fishinspace;
+
 import javax.swing.*;
 
 public class Main {
@@ -19,7 +21,7 @@ public class Main {
 
         SpaceInvaders spaceInvaders=new SpaceInvaders();
         frame.add(spaceInvaders);
-        frame.pack();;
+        frame.pack();
         frame.setVisible(true);
 
 
