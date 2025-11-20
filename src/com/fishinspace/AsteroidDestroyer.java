@@ -1,12 +1,12 @@
 package com.fishinspace;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import javax.swing.*;
 
 /**
  * AsteroidDestroyer.java
@@ -15,6 +15,7 @@ import java.util.Random;
  *
  * --- CONTROLS ---
  * Arrow Up:    Thrust
+ * Arrow Down:  Brake (with BOOSTER powerup)
  * Arrow Left:  Rotate Left
  * Arrow Right: Rotate Right
  * Spacebar:    Fire Bullet
@@ -23,7 +24,7 @@ import java.util.Random;
  * Compile: javac AsteroidDestroyer.java
  * Run:     java AsteroidDestroyer
  */
-public class space_game {
+public class AsteroidDestroyer {
 
     public static void main(String[] args) {
         
@@ -66,11 +67,33 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
     private static final int SCORE_MEDIUM_ASTEROID = 50;
     private static final int SCORE_SMALL_ASTEROID = 100;
 
+    // --- PowerUp Constants ---
+    private static final int POWERUP_SIZE = 20;
+    private static final int POWERUP_DURATION = 600; // 10 seconds at 60 FPS
+    private static final double POWERUP_SPEED = 0.5;
+    private static final int POWERUP_DROP_MIN = 5; // Min asteroids before drop
+    private static final int POWERUP_DROP_MAX = 10; // Max asteroids before drop
+
+    // PowerUp types
+    enum PowerUpType {
+        AIM_BEAM,      // Shows dotted aim line
+        DOUBLE_SHOT,   // Fires two bullets
+        BOOSTER,       // Faster movement + brake ability
+        RAPID_FIRE     // Shoots 1.5x faster
+    }
+
     // --- Game State Variables ---
     private Timer gameTimer;
     private Random random;
     private boolean inGame;
     private int score;
+
+    // PowerUp tracking
+    private List<PowerUp> powerUps;
+    private int asteroidsDestroyedSinceLastPowerUp;
+    private int asteroidsUntilNextPowerUp;
+    private PowerUpType activePowerUp;
+    private int powerUpTimeRemaining;
 
     // --- Player/Ship Variables ---
     private double shipX, shipY;       // Ship's center coordinates
@@ -82,6 +105,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
     private boolean rotatingLeft;
     private boolean rotatingRight;
     private boolean thrusting;
+    private boolean braking;
 
     // --- Game Object Lists ---
     private List<Bullet> bullets;
@@ -99,6 +123,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         random = new Random();
         bullets = new ArrayList<>();
         asteroids = new ArrayList<>();
+        powerUps = new ArrayList<>();
 
         // Add the key listener to this panel
         addKeyListener(this);
@@ -125,6 +150,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         bullets.clear();
         asteroids.clear();
+        powerUps.clear();
 
         // Create the initial set of large asteroids
         for (int i = 0; i < ASTEROID_INIT_COUNT; i++) {
@@ -134,6 +160,13 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         score = 0;
         inGame = true;
         bulletCooldownTimer = 0;
+
+        // PowerUp system
+        asteroidsDestroyedSinceLastPowerUp = 0;
+        asteroidsUntilNextPowerUp = POWERUP_DROP_MIN + random.nextInt(POWERUP_DROP_MAX - POWERUP_DROP_MIN + 1);
+        activePowerUp = null;
+        powerUpTimeRemaining = 0;
+        braking = false;
 
         // Restart timer if it was stopped
         if (gameTimer != null && !gameTimer.isRunning()) {
@@ -187,6 +220,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         updateShip();
         updateBullets();
         updateAsteroids();
+        updatePowerUps();
         checkCollisions();
 
         // Spawn more asteroids if needed
@@ -198,6 +232,14 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         // Manage bullet cooldown
         if (bulletCooldownTimer > 0) {
             bulletCooldownTimer--;
+        }
+
+        // Manage active powerup duration
+        if (powerUpTimeRemaining > 0) {
+            powerUpTimeRemaining--;
+            if (powerUpTimeRemaining == 0) {
+                activePowerUp = null; // PowerUp expired
+            }
         }
     }
     /**
@@ -212,10 +254,22 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
             shipAngle += SHIP_TURN_SPEED;
         }
 
+        // Determine thrust power (boosted if BOOSTER powerup active)
+        double thrustPower = SHIP_THRUST_POWER;
+        if (activePowerUp == PowerUpType.BOOSTER) {
+            thrustPower *= 1.5; // 50% faster
+        }
+
         // Thrust
         if (thrusting) {
-            shipVelX += Math.cos(shipAngle) * SHIP_THRUST_POWER;
-            shipVelY += Math.sin(shipAngle) * SHIP_THRUST_POWER;
+            shipVelX += Math.cos(shipAngle) * thrustPower;
+            shipVelY += Math.sin(shipAngle) * thrustPower;
+        }
+
+        // Braking (only available with BOOSTER powerup)
+        if (braking && activePowerUp == PowerUpType.BOOSTER) {
+            shipVelX *= 0.9; // Rapid deceleration
+            shipVelY *= 0.9;
         }
 
         // Apply friction/drag
@@ -258,6 +312,24 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
             });
         }
     }
+
+    /**
+     * Updates all powerups and checks for collection.
+     */
+    private void updatePowerUps() {
+        for (int i = powerUps.size() - 1; i >= 0; i--) {
+            PowerUp p = powerUps.get(i);
+            p.update();
+
+            // Check if ship collected the powerup
+            double dist = Math.sqrt(Math.pow(shipX - p.x, 2) + Math.pow(shipY - p.y, 2));
+            if (dist < (SHIP_SIZE + POWERUP_SIZE) / 2.0) {
+                activePowerUp = p.type;
+                powerUpTimeRemaining = POWERUP_DURATION;
+                powerUps.remove(i);
+            }
+        }
+    }
     /**
      * Helper functional interface for the wrapCoordinates method.
      */
@@ -279,11 +351,30 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
      * Fires a bullet from the ship's nose.
      */
     private void fireBullet() {
+        // Determine cooldown (faster with RAPID_FIRE)
+        int cooldown = BULLET_COOLDOWN;
+        if (activePowerUp == PowerUpType.RAPID_FIRE) {
+            cooldown = (int) (BULLET_COOLDOWN / 1.5); // 1.5x faster
+        }
+
         if (bulletCooldownTimer <= 0) {
             double dx = Math.cos(shipAngle) * BULLET_SPEED;
             double dy = Math.sin(shipAngle) * BULLET_SPEED;
-            bullets.add(new Bullet(shipX, shipY, dx, dy));
-            bulletCooldownTimer = BULLET_COOLDOWN; // Reset cooldown
+
+            if (activePowerUp == PowerUpType.DOUBLE_SHOT) {
+                // Fire two bullets, slightly offset
+                double offsetAngle = Math.PI / 16; // Small angle offset
+                double leftAngle = shipAngle - offsetAngle;
+                double rightAngle = shipAngle + offsetAngle;
+
+                bullets.add(new Bullet(shipX, shipY, Math.cos(leftAngle) * BULLET_SPEED, Math.sin(leftAngle) * BULLET_SPEED));
+                bullets.add(new Bullet(shipX, shipY, Math.cos(rightAngle) * BULLET_SPEED, Math.sin(rightAngle) * BULLET_SPEED));
+            } else {
+                // Fire single bullet
+                bullets.add(new Bullet(shipX, shipY, dx, dy));
+            }
+
+            bulletCooldownTimer = cooldown; // Reset cooldown
         }
     }
     /**
@@ -338,6 +429,19 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
             // Small asteroid, just remove it
             score += SCORE_SMALL_ASTEROID;
         }
+
+        // PowerUp drop logic
+        asteroidsDestroyedSinceLastPowerUp++;
+        if (asteroidsDestroyedSinceLastPowerUp >= asteroidsUntilNextPowerUp) {
+            // Spawn random powerup
+            PowerUpType[] types = PowerUpType.values();
+            PowerUpType randomType = types[random.nextInt(types.length)];
+            powerUps.add(new PowerUp(a.x, a.y, randomType));
+
+            // Reset counter
+            asteroidsDestroyedSinceLastPowerUp = 0;
+            asteroidsUntilNextPowerUp = POWERUP_DROP_MIN + random.nextInt(POWERUP_DROP_MAX - POWERUP_DROP_MIN + 1);
+        }
     }
 
 
@@ -354,12 +458,26 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         if (inGame) {
+            drawAimBeam(g2d); // Draw aim beam first (behind ship)
             drawShip(g2d);
             drawBullets(g2d);
             drawAsteroids(g2d);
+            drawPowerUps(g2d);
             drawScore(g2d);
+            drawActivePowerUp(g2d);
         } else {
             drawGameOver(g2d);
+        }
+    }
+    private void drawAimBeam(Graphics2D g2d) {
+        if (activePowerUp == PowerUpType.AIM_BEAM) {
+            g2d.setColor(Color.GREEN);
+            Stroke dashed = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0);
+            g2d.setStroke(dashed);
+            double endX = shipX + Math.cos(shipAngle) * 1000;
+            double endY = shipY + Math.sin(shipAngle) * 1000;
+            g2d.drawLine((int) shipX, (int) shipY, (int) endX, (int) endY);
+            g2d.setStroke(new BasicStroke());
         }
     }
     /**
@@ -414,12 +532,76 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     /**
+     * Draws all powerups.
+     */
+    private void drawPowerUps(Graphics2D g2d) {
+        for (PowerUp p : powerUps) {
+            // Draw colored square based on powerup type
+            Color color;
+            String label;
+            switch (p.type) {
+                case AIM_BEAM:
+                    color = Color.GREEN;
+                    label = "A";
+                    break;
+                case DOUBLE_SHOT:
+                    color = Color.BLUE;
+                    label = "D";
+                    break;
+                case BOOSTER:
+                    color = Color.ORANGE;
+                    label = "B";
+                    break;
+                case RAPID_FIRE:
+                    color = Color.RED;
+                    label = "R";
+                    break;
+                default:
+                    color = Color.WHITE;
+                    label = "?";
+            }
+
+            g2d.setColor(color);
+            g2d.fillRect((int)(p.x - POWERUP_SIZE / 2), (int)(p.y - POWERUP_SIZE / 2), POWERUP_SIZE, POWERUP_SIZE);
+            g2d.setColor(Color.BLACK);
+            g2d.drawString(label, (int)p.x - 4, (int)p.y + 5);
+        }
+    }
+
+    /**
      * Draws the current score.
      */
     private void drawScore(Graphics2D g2d) {
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Monospaced", Font.BOLD, 20));
         g2d.drawString("Score: " + score, 10, 25);
+    }
+
+    /**
+     * Draws the active powerup indicator.
+     */
+    private void drawActivePowerUp(Graphics2D g2d) {
+        if (activePowerUp != null && powerUpTimeRemaining > 0) {
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("Monospaced", Font.PLAIN, 16));
+            String powerUpName = "";
+            switch (activePowerUp) {
+                case AIM_BEAM:
+                    powerUpName = "AIM BEAM";
+                    break;
+                case DOUBLE_SHOT:
+                    powerUpName = "DOUBLE SHOT";
+                    break;
+                case BOOSTER:
+                    powerUpName = "BOOSTER";
+                    break;
+                case RAPID_FIRE:
+                    powerUpName = "RAPID FIRE";
+                    break;
+            }
+            int timeLeft = powerUpTimeRemaining / 60; // Convert frames to seconds
+            g2d.drawString("PowerUp: " + powerUpName + " (" + timeLeft + "s)", 10, 50);
+        }
     }
 
     /**
@@ -462,6 +644,9 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
             if (key == KeyEvent.VK_UP) {
                 thrusting = true;
             }
+            if (key == KeyEvent.VK_DOWN) {
+                braking = true;
+            }
             if (key == KeyEvent.VK_SPACE) {
                 fireBullet();
             }
@@ -484,6 +669,9 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
         if (key == KeyEvent.VK_UP) {
             thrusting = false;
+        }
+        if (key == KeyEvent.VK_DOWN) {
+            braking = false;
         }
     }
 
@@ -531,4 +719,27 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
             y += dy;
         }
     }
+
+    /**
+     * Simple class to hold PowerUp data.
+     */
+    private static class PowerUp {
+        double x, y;
+        PowerUpType type;
+        double age; // For floating animation
+
+        public PowerUp(double x, double y, PowerUpType type) {
+            this.x = x;
+            this.y = y;
+            this.type = type;
+            this.age = 0;
+        }
+
+        public void update() {
+            age += 0.05;
+            // Float up and down
+            y += Math.sin(age) * 0.5;
+        }
+    }
 }
+
