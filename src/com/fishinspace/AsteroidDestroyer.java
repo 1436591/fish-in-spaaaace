@@ -57,7 +57,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
     private static final double SHIP_THRUST_POWER = 0.1;
     private static final double SHIP_DRAG = 0.98; // Friction
     private static final int BULLET_SPEED = 7;
-    private static final int BULLET_COOLDOWN = 10; // Frames between shots
+    private static final int BULLET_COOLDOWN = 15; // Frames between shots
     private static final int ASTEROID_INIT_COUNT = 5;
     private static final int ASTEROID_MAX_SPEED = 2;
     private static final int ASTEROID_SIZE_LARGE = 60;
@@ -69,7 +69,7 @@ class GamePanel extends JPanel implements ActionListener, KeyListener {
 
     // --- PowerUp Constants ---
     private static final int POWERUP_SIZE = 20;
-    private static final int POWERUP_DURATION = 600; // 10 seconds at 60 FPS
+    private static final int POWERUP_DURATION = 1200; // 20 seconds at 60 FPS
     private static final int POWERUP_DROP_MIN = 5; // Min asteroids before drop
     private static final int POWERUP_DROP_MAX = 10; // Max asteroids before drop
 
