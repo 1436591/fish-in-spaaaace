@@ -1,18 +1,78 @@
 package com.fishinspace;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.geom.AffineTransform;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import javax.swing.*;
-
-/**
- * GamePanel
- * Handles core game loop, rendering, input, and state.
+/*
+ * Aggregated game classes moved from separate source files into a single file
+ * `AsteroidDestroyer.java` (except for `Main.java` which remains separate).
+ * Only this class is public to satisfy Java's single public top-level class
+ * per file rule; other classes are package-private and still accessible to
+ * `Main` because it resides in the same package.
  */
-public class GamePanel extends JPanel implements ActionListener, KeyListener {
+public class AsteroidDestroyer { /* Intentionally empty aggregator class */ }
+
+class Asteroid {
+    public double x, y, dx, dy;
+    public int size;
+
+    public Asteroid(double x, double y, double dx, double dy, int size) {
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+        this.size = size;
+    }
+
+    public void move() {
+        x += dx;
+        y += dy;
+    }
+}
+
+class Bullet {
+    public double x, y, dx, dy;
+
+    public Bullet(double x, double y, double dx, double dy) {
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+    }
+
+    public void move() {
+        x += dx;
+        y += dy;
+    }
+}
+
+class PowerUp {
+    public double x, y;
+    public PowerUpType type;
+    public double age; // for floating animation
+
+    public PowerUp(double x, double y, PowerUpType type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.age = 0;
+    }
+
+    public void update() {
+        age += 0.05;
+        y += Math.sin(age) * 0.5; // float effect
+    }
+}
+
+enum PowerUpType {
+    AIM_BEAM,
+    DOUBLE_SHOT,
+    BOOSTER,
+    RAPID_FIRE
+}
+
+/*
+ * Original GamePanel implementation moved intact. Public modifier removed so
+ * file can compile with AsteroidDestroyer as the single public class.
+ */
+class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListener, java.awt.event.KeyListener {
 
     // --- Game Constants ---
     private static final int PANEL_WIDTH = 800;
@@ -39,12 +99,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private static final int POWERUP_DROP_MAX = 10;
 
     // --- Game State ---
-    private Timer gameTimer;
-    private Random random;
+    private javax.swing.Timer gameTimer;
+    private java.util.Random random;
     private boolean inGame;
     private int score;
 
-    private List<PowerUp> powerUps;
+    private java.util.List<PowerUp> powerUps;
     private int asteroidsDestroyedSinceLastPowerUp;
     private int asteroidsUntilNextPowerUp;
     private PowerUpType activePowerUp;
@@ -54,7 +114,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private double shipX, shipY;
     private double shipVelX, shipVelY;
     private double shipAngle;
-    private Polygon shipShape;
+    private java.awt.Polygon shipShape;
 
     // --- Input Flags ---
     private boolean rotatingLeft;
@@ -63,23 +123,23 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private boolean braking;
 
     // --- Objects ---
-    private List<Bullet> bullets;
-    private List<Asteroid> asteroids;
+    private java.util.List<Bullet> bullets;
+    private java.util.List<Asteroid> asteroids;
     private int bulletCooldownTimer;
 
-    public GamePanel() {
-        setPreferredSize(new Dimension(PANEL_WIDTH, PANEL_HEIGHT));
-        setBackground(Color.BLACK);
+    GamePanel() {
+        setPreferredSize(new java.awt.Dimension(PANEL_WIDTH, PANEL_HEIGHT));
+        setBackground(java.awt.Color.BLACK);
         setFocusable(true);
         addKeyListener(this);
 
-        random = new Random();
-        bullets = new ArrayList<>();
-        asteroids = new ArrayList<>();
-        powerUps = new ArrayList<>();
+        random = new java.util.Random();
+        bullets = new java.util.ArrayList<>();
+        asteroids = new java.util.ArrayList<>();
+        powerUps = new java.util.ArrayList<>();
 
         initGame();
-        gameTimer = new Timer(16, this); // ~60 FPS
+        gameTimer = new javax.swing.Timer(16, this); // ~60 FPS
         gameTimer.start();
     }
 
@@ -143,7 +203,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     @Override
-    public void actionPerformed(ActionEvent e) {
+    public void actionPerformed(java.awt.event.ActionEvent e) {
         if (inGame) {
             updateGame();
         }
@@ -311,10 +371,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
+    protected void paintComponent(java.awt.Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        java.awt.Graphics2D g2d = (java.awt.Graphics2D) g;
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
         if (inGame) {
             drawAimBeam(g2d);
             drawShip(g2d);
@@ -328,77 +388,77 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
-    private void drawAimBeam(Graphics2D g2d) {
+    private void drawAimBeam(java.awt.Graphics2D g2d) {
         if (activePowerUp == PowerUpType.AIM_BEAM) {
-            g2d.setColor(Color.GREEN);
-            Stroke dashed = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0);
+            g2d.setColor(java.awt.Color.GREEN);
+            java.awt.Stroke dashed = new java.awt.BasicStroke(1, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0);
             g2d.setStroke(dashed);
             double endX = shipX + Math.cos(shipAngle) * 1000;
             double endY = shipY + Math.sin(shipAngle) * 1000;
             g2d.drawLine((int) shipX, (int) shipY, (int) endX, (int) endY);
-            g2d.setStroke(new BasicStroke());
+            g2d.setStroke(new java.awt.BasicStroke());
         }
     }
 
-    private void drawShip(Graphics2D g2d) {
-        shipShape = new Polygon();
+    private void drawShip(java.awt.Graphics2D g2d) {
+        shipShape = new java.awt.Polygon();
         shipShape.addPoint(SHIP_SIZE / 2, 0);
         shipShape.addPoint(-SHIP_SIZE / 2, -SHIP_SIZE / 3);
         shipShape.addPoint(-SHIP_SIZE / 2, SHIP_SIZE / 3);
-        AffineTransform oldTransform = g2d.getTransform();
+        java.awt.geom.AffineTransform oldTransform = g2d.getTransform();
         g2d.translate(shipX, shipY);
         g2d.rotate(shipAngle);
         if (thrusting) {
-            g2d.setColor(Color.ORANGE);
+            g2d.setColor(java.awt.Color.ORANGE);
             g2d.fillPolygon(new int[]{-SHIP_SIZE / 2, -SHIP_SIZE, -SHIP_SIZE / 2}, new int[]{-SHIP_SIZE / 4, 0, SHIP_SIZE / 4}, 3);
         }
-        g2d.setColor(Color.CYAN);
+        g2d.setColor(java.awt.Color.CYAN);
         g2d.draw(shipShape);
         g2d.setTransform(oldTransform);
     }
 
-    private void drawBullets(Graphics2D g2d) {
-        g2d.setColor(Color.YELLOW);
+    private void drawBullets(java.awt.Graphics2D g2d) {
+        g2d.setColor(java.awt.Color.YELLOW);
         for (Bullet b : bullets) {
             g2d.fillOval((int) b.x - 2, (int) b.y - 2, 4, 4);
         }
     }
 
-    private void drawAsteroids(Graphics2D g2d) {
-        g2d.setColor(Color.GRAY);
+    private void drawAsteroids(java.awt.Graphics2D g2d) {
+        g2d.setColor(java.awt.Color.GRAY);
         for (Asteroid a : asteroids) {
             g2d.drawOval((int) (a.x - a.size / 2.0), (int) (a.y - a.size / 2.0), a.size, a.size);
         }
     }
 
-    private void drawPowerUps(Graphics2D g2d) {
+    private void drawPowerUps(java.awt.Graphics2D g2d) {
         for (PowerUp p : powerUps) {
-            Color color;
+            java.awt.Color color;
             String label;
             switch (p.type) {
-                case AIM_BEAM: color = Color.GREEN; label = "A"; break;
-                case DOUBLE_SHOT: color = Color.BLUE; label = "D"; break;
-                case BOOSTER: color = Color.ORANGE; label = "B"; break;
-                case RAPID_FIRE: color = Color.RED; label = "R"; break;
-                default: color = Color.WHITE; label = "?";
+                case AIM_BEAM: color = java.awt.Color.GREEN; label = "A"; break;
+                case DOUBLE_SHOT: color = java.awt.Color.BLUE; label = "D"; break;
+                case BOOSTER: color = java.awt.Color.ORANGE; label = "B"; break;
+                case RAPID_FIRE: color = java.awt.Color.RED; label = "R"; break;
+                default: color = java.awt.Color.WHITE; label = "?";
             }
             g2d.setColor(color);
             g2d.fillRect((int) (p.x - POWERUP_SIZE / 2), (int) (p.y - POWERUP_SIZE / 2), POWERUP_SIZE, POWERUP_SIZE);
-            g2d.setColor(Color.BLACK);
+            g2d.setColor(java.awt.Color.BLACK);
             g2d.drawString(label, (int) p.x - 4, (int) p.y + 5);
         }
     }
 
-    private void drawScore(Graphics2D g2d) {
-        g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("Monospaced", Font.BOLD, 20));
+    private void drawScore(java.awt.Graphics2D g2d) {
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 20));
         g2d.drawString("Score: " + score, 10, 25);
     }
 
-    private void drawActivePowerUp(Graphics2D g2d) {
+    private void drawActivePowerUp(java.awt.Graphics2D g2d) {
         if (activePowerUp != null && powerUpTimeRemaining > 0) {
-            g2d.setColor(Color.WHITE);
-            g2d.setFont(new Font("Monospaced", Font.PLAIN, 16));
+            g2d.setColor(java.awt.Color.WHITE);
+            g2d.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 16));
             String name;
             switch (activePowerUp) {
                 case AIM_BEAM: name = "AIM BEAM"; break;
@@ -412,47 +472,46 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
     }
 
-    private void drawGameOver(Graphics2D g2d) {
+    private void drawGameOver(java.awt.Graphics2D g2d) {
         String msg = "Game Over";
         String scoreMsg = "Final Score: " + score;
         String restartMsg = "Press 'R' to Restart";
-        Font largeFont = new Font("Monospaced", Font.BOLD, 75);
-        Font mediumFont = new Font("Monospaced", Font.BOLD, 30);
-        FontMetrics metricsLarge = g2d.getFontMetrics(largeFont);
-        FontMetrics metricsMedium = g2d.getFontMetrics(mediumFont);
-        g2d.setColor(Color.RED);
+        java.awt.Font largeFont = new java.awt.Font("Monospaced", java.awt.Font.BOLD, 75);
+        java.awt.Font mediumFont = new java.awt.Font("Monospaced", java.awt.Font.BOLD, 30);
+        java.awt.FontMetrics metricsLarge = g2d.getFontMetrics(largeFont);
+        java.awt.FontMetrics metricsMedium = g2d.getFontMetrics(mediumFont);
+        g2d.setColor(java.awt.Color.RED);
         g2d.setFont(largeFont);
         g2d.drawString(msg, (PANEL_WIDTH - metricsLarge.stringWidth(msg)) / 2, PANEL_HEIGHT / 2 - 50);
-        g2d.setColor(Color.WHITE);
+        g2d.setColor(java.awt.Color.WHITE);
         g2d.setFont(mediumFont);
         g2d.drawString(scoreMsg, (PANEL_WIDTH - metricsMedium.stringWidth(scoreMsg)) / 2, PANEL_HEIGHT / 2 + 20);
         g2d.drawString(restartMsg, (PANEL_WIDTH - metricsMedium.stringWidth(restartMsg)) / 2, PANEL_HEIGHT / 2 + 60);
     }
 
-    // --- KeyListener ---
     @Override
-    public void keyPressed(KeyEvent e) {
+    public void keyPressed(java.awt.event.KeyEvent e) {
         int key = e.getKeyCode();
         if (inGame) {
-            if (key == KeyEvent.VK_LEFT) rotatingLeft = true;
-            if (key == KeyEvent.VK_RIGHT) rotatingRight = true;
-            if (key == KeyEvent.VK_UP) thrusting = true;
-            if (key == KeyEvent.VK_DOWN) braking = true;
-            if (key == KeyEvent.VK_SPACE) fireBullet();
+            if (key == java.awt.event.KeyEvent.VK_LEFT) rotatingLeft = true;
+            if (key == java.awt.event.KeyEvent.VK_RIGHT) rotatingRight = true;
+            if (key == java.awt.event.KeyEvent.VK_UP) thrusting = true;
+            if (key == java.awt.event.KeyEvent.VK_DOWN) braking = true;
+            if (key == java.awt.event.KeyEvent.VK_SPACE) fireBullet();
         } else {
-            if (key == KeyEvent.VK_R) initGame();
+            if (key == java.awt.event.KeyEvent.VK_R) initGame();
         }
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {
+    public void keyReleased(java.awt.event.KeyEvent e) {
         int key = e.getKeyCode();
-        if (key == KeyEvent.VK_LEFT) rotatingLeft = false;
-        if (key == KeyEvent.VK_RIGHT) rotatingRight = false;
-        if (key == KeyEvent.VK_UP) thrusting = false;
-        if (key == KeyEvent.VK_DOWN) braking = false;
+        if (key == java.awt.event.KeyEvent.VK_LEFT) rotatingLeft = false;
+        if (key == java.awt.event.KeyEvent.VK_RIGHT) rotatingRight = false;
+        if (key == java.awt.event.KeyEvent.VK_UP) thrusting = false;
+        if (key == java.awt.event.KeyEvent.VK_DOWN) braking = false;
     }
 
     @Override
-    public void keyTyped(KeyEvent e) { /* not used */ }
+    public void keyTyped(java.awt.event.KeyEvent e) { /* not used */ }
 }
