@@ -23,7 +23,7 @@ import java.util.Random;
  * Compile: javac AsteroidDestroyer.java
  * Run:     java AsteroidDestroyer
  */
-public class AsteroidDestroyer {
+public class space_game {
 
     public static void main(String[] args) {
         
