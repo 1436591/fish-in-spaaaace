@@ -1,6 +1,7 @@
 package com.fishinspace;
 
 /**
+* Brayden is dope and allat
  * AsteroidDestroyer.java
  *
  * A complete, Asteroid Destroyer game created with Java Swing.
