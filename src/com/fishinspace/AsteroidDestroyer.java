@@ -522,5 +522,5 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
     }
 
     @Override
-    public void keyTyped(java.awt.event.KeyEvent e) { /* not used */ }
+    public void keyTyped(java.awt.event.KeyEvent e) {}
 }
