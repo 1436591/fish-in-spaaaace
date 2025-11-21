@@ -16,72 +16,7 @@ package com.fishinspace;
  * Compile: javac AsteroidDestroyer.java
  * Run:     java AsteroidDestroyer
  */
-public class AsteroidDestroyer { }
-
-class Asteroid {
-    public double x, y, dx, dy;
-    public int size;
-
-    public Asteroid(double x, double y, double dx, double dy, int size) {
-        this.x = x;
-        this.y = y;
-        this.dx = dx;
-        this.dy = dy;
-        this.size = size;
-    }
-
-    public void move() {
-        x += dx;
-        y += dy;
-    }
-}
-
-class Bullet {
-    public double x, y, dx, dy;
-
-    public Bullet(double x, double y, double dx, double dy) {
-        this.x = x;
-        this.y = y;
-        this.dx = dx;
-        this.dy = dy;
-    }
-
-    public void move() {
-        x += dx;
-        y += dy;
-    }
-}
-
-class PowerUp {
-    public double x, y;
-    public PowerUpType type;
-    public double age; // for floating animation
-
-    public PowerUp(double x, double y, PowerUpType type) {
-        this.x = x;
-        this.y = y;
-        this.type = type;
-        this.age = 0;
-    }
-
-    public void update() {
-        age += 0.05;
-        y += Math.sin(age) * 0.5; // float effect
-    }
-}
-
-enum PowerUpType {
-    AIM_BEAM,
-    DOUBLE_SHOT,
-    BOOSTER,
-    RAPID_FIRE
-}
-
-/*
- * Original GamePanel implementation moved intact. Public modifier removed so
- * file can compile with AsteroidDestroyer as the single public class.
- */
-class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListener, java.awt.event.KeyListener {
+public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.event.ActionListener, java.awt.event.KeyListener {
 
     // --- Game Constants ---
     private static final int PANEL_WIDTH = 800;
@@ -112,6 +47,9 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
     private java.util.Random random;
     private boolean inGame;
     private int score;
+    // Added start & pause state
+    private boolean started; // false until user presses ENTER
+    private boolean paused;  // toggled by P key
 
     private java.util.List<PowerUp> powerUps;
     private int asteroidsDestroyedSinceLastPowerUp;
@@ -123,7 +61,6 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
     private double shipX, shipY;
     private double shipVelX, shipVelY;
     private double shipAngle;
-    private java.awt.Polygon shipShape;
 
     // --- Input Flags ---
     private boolean rotatingLeft;
@@ -136,7 +73,7 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
     private java.util.List<Asteroid> asteroids;
     private int bulletCooldownTimer;
 
-    GamePanel() {
+    public AsteroidDestroyer() {
         setPreferredSize(new java.awt.Dimension(PANEL_WIDTH, PANEL_HEIGHT));
         setBackground(java.awt.Color.BLACK);
         setFocusable(true);
@@ -174,6 +111,8 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
 
         score = 0;
         inGame = true;
+        started = false; // show start screen initially
+        paused = false;
         bulletCooldownTimer = 0;
 
         asteroidsDestroyedSinceLastPowerUp = 0;
@@ -213,7 +152,8 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
 
     @Override
     public void actionPerformed(java.awt.event.ActionEvent e) {
-        if (inGame) {
+        // Only update when game started and not paused
+        if (inGame && started && !paused) {
             updateGame();
         }
         repaint();
@@ -384,6 +324,13 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
         super.paintComponent(g);
         java.awt.Graphics2D g2d = (java.awt.Graphics2D) g;
         g2d.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Start screen
+        if (!started) {
+            drawStartScreen(g2d);
+            return;
+        }
+
         if (inGame) {
             drawAimBeam(g2d);
             drawShip(g2d);
@@ -392,9 +339,45 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
             drawPowerUps(g2d);
             drawScore(g2d);
             drawActivePowerUp(g2d);
+            if (paused) {
+                drawPausedOverlay(g2d);
+            }
         } else {
             drawGameOver(g2d);
         }
+    }
+
+    // Start screen with instructions
+    private void drawStartScreen(java.awt.Graphics2D g2d) {
+        String title = "Space Invaders";
+        String msg = "Press ENTER to Start";
+        String controls = "Arrows: Move  |  SPACE: Shoot  |  P: Pause  |  R: Restart";
+
+        g2d.setColor(java.awt.Color.WHITE);
+        java.awt.Font largeFont = new java.awt.Font("Monospaced", java.awt.Font.BOLD, 75);
+        java.awt.Font mediumFont = new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 30);
+        java.awt.Font smallFont = new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 16);
+        java.awt.FontMetrics metricsLarge = g2d.getFontMetrics(largeFont);
+        java.awt.FontMetrics metricsMedium = g2d.getFontMetrics(mediumFont);
+        g2d.setFont(largeFont);
+        g2d.drawString(title, (PANEL_WIDTH - metricsLarge.stringWidth(title)) / 2, PANEL_HEIGHT / 2 - 40);
+        g2d.setFont(mediumFont);
+        g2d.drawString(msg, (PANEL_WIDTH - metricsMedium.stringWidth(msg)) / 2, PANEL_HEIGHT / 2 + 10);
+        g2d.setFont(smallFont);
+        java.awt.FontMetrics metricsSmall = g2d.getFontMetrics(smallFont);
+        g2d.drawString(controls, (PANEL_WIDTH - metricsSmall.stringWidth(controls)) / 2, PANEL_HEIGHT / 2 + 50);
+    }
+
+    // Pause overlay
+    private void drawPausedOverlay(java.awt.Graphics2D g2d) {
+        String msg = "PAUSED";
+        java.awt.Font font = new java.awt.Font("Monospaced", java.awt.Font.BOLD, 40);
+        java.awt.FontMetrics m = g2d.getFontMetrics(font);
+        g2d.setColor(new java.awt.Color(0,0,0,150));
+        g2d.fillRect(0,0,PANEL_WIDTH,PANEL_HEIGHT);
+        g2d.setColor(java.awt.Color.YELLOW);
+        g2d.setFont(font);
+        g2d.drawString(msg, (PANEL_WIDTH - m.stringWidth(msg)) / 2, PANEL_HEIGHT / 2);
     }
 
     private void drawAimBeam(java.awt.Graphics2D g2d) {
@@ -410,7 +393,7 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
     }
 
     private void drawShip(java.awt.Graphics2D g2d) {
-        shipShape = new java.awt.Polygon();
+        java.awt.Polygon shipShape = new java.awt.Polygon();
         shipShape.addPoint(SHIP_SIZE / 2, 0);
         shipShape.addPoint(-SHIP_SIZE / 2, -SHIP_SIZE / 3);
         shipShape.addPoint(-SHIP_SIZE / 2, SHIP_SIZE / 3);
@@ -462,6 +445,11 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
         g2d.setColor(java.awt.Color.WHITE);
         g2d.setFont(new java.awt.Font("Monospaced", java.awt.Font.BOLD, 20));
         g2d.drawString("Score: " + score, 10, 25);
+        // Controls hint (pause / restart) in top-right
+        String ctrl = "P: Pause | R: Restart";
+        java.awt.FontMetrics fm = g2d.getFontMetrics();
+        int w = fm.stringWidth(ctrl);
+        g2d.drawString(ctrl, PANEL_WIDTH - w - 10, 25);
     }
 
     private void drawActivePowerUp(java.awt.Graphics2D g2d) {
@@ -485,42 +473,116 @@ class GamePanel extends javax.swing.JPanel implements java.awt.event.ActionListe
         String msg = "Game Over";
         String scoreMsg = "Final Score: " + score;
         String restartMsg = "Press 'R' to Restart";
+        String quitMsg = "Press 'Q' to Quit";
         java.awt.Font largeFont = new java.awt.Font("Monospaced", java.awt.Font.BOLD, 75);
         java.awt.Font mediumFont = new java.awt.Font("Monospaced", java.awt.Font.BOLD, 30);
         java.awt.FontMetrics metricsLarge = g2d.getFontMetrics(largeFont);
-        java.awt.FontMetrics metricsMedium = g2d.getFontMetrics(mediumFont);
         g2d.setColor(java.awt.Color.RED);
         g2d.setFont(largeFont);
         g2d.drawString(msg, (PANEL_WIDTH - metricsLarge.stringWidth(msg)) / 2, PANEL_HEIGHT / 2 - 50);
         g2d.setColor(java.awt.Color.WHITE);
         g2d.setFont(mediumFont);
+        java.awt.FontMetrics metricsMedium = g2d.getFontMetrics(mediumFont);
         g2d.drawString(scoreMsg, (PANEL_WIDTH - metricsMedium.stringWidth(scoreMsg)) / 2, PANEL_HEIGHT / 2 + 20);
         g2d.drawString(restartMsg, (PANEL_WIDTH - metricsMedium.stringWidth(restartMsg)) / 2, PANEL_HEIGHT / 2 + 60);
+        g2d.drawString(quitMsg, (PANEL_WIDTH - metricsMedium.stringWidth(quitMsg)) / 2, PANEL_HEIGHT / 2 + 100);
     }
 
     @Override
     public void keyPressed(java.awt.event.KeyEvent e) {
         int key = e.getKeyCode();
-        if (inGame) {
-            if (key == java.awt.event.KeyEvent.VK_LEFT) rotatingLeft = true;
-            if (key == java.awt.event.KeyEvent.VK_RIGHT) rotatingRight = true;
-            if (key == java.awt.event.KeyEvent.VK_UP) thrusting = true;
-            if (key == java.awt.event.KeyEvent.VK_DOWN) braking = true;
-            if (key == java.awt.event.KeyEvent.VK_SPACE) fireBullet();
-        } else {
-            if (key == java.awt.event.KeyEvent.VK_R) initGame();
+
+        // Start screen handling
+        if (!started) {
+            if (key == java.awt.event.KeyEvent.VK_ENTER) {
+                started = true;
+            }
+            return;
         }
+
+        // Restart anytime
+        if (key == java.awt.event.KeyEvent.VK_R) { initGame(); return; }
+
+        // Quit on Q (after start)
+        if (key == java.awt.event.KeyEvent.VK_Q) { System.exit(0); }
+
+        // Pause toggle
+        if (key == java.awt.event.KeyEvent.VK_P && inGame) { paused = !paused; return; }
+        if (!inGame || paused) { return; }
+
+        if (key == java.awt.event.KeyEvent.VK_LEFT)  rotatingLeft = true;
+        if (key == java.awt.event.KeyEvent.VK_RIGHT) rotatingRight = true;
+        if (key == java.awt.event.KeyEvent.VK_UP)    thrusting = true;
+        if (key == java.awt.event.KeyEvent.VK_DOWN)  braking = true;
+        if (key == java.awt.event.KeyEvent.VK_SPACE) fireBullet();
     }
 
     @Override
     public void keyReleased(java.awt.event.KeyEvent e) {
+        if (!inGame || !started || paused) return;
         int key = e.getKeyCode();
-        if (key == java.awt.event.KeyEvent.VK_LEFT) rotatingLeft = false;
+        if (key == java.awt.event.KeyEvent.VK_LEFT)  rotatingLeft = false;
         if (key == java.awt.event.KeyEvent.VK_RIGHT) rotatingRight = false;
-        if (key == java.awt.event.KeyEvent.VK_UP) thrusting = false;
-        if (key == java.awt.event.KeyEvent.VK_DOWN) braking = false;
+        if (key == java.awt.event.KeyEvent.VK_UP)    thrusting = false;
+        if (key == java.awt.event.KeyEvent.VK_DOWN)  braking = false;
     }
 
     @Override
     public void keyTyped(java.awt.event.KeyEvent e) {}
 }
+
+class Asteroid {
+    public double x, y, dx, dy;
+    public int size;
+
+    public Asteroid(double x, double y, double dx, double dy, int size) {
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+        this.size = size;
+    }
+
+    public void move() {
+        x += dx;
+        y += dy;
+    }
+}
+
+class Bullet {
+    public double x, y, dx, dy;
+
+    public Bullet(double x, double y, double dx, double dy) {
+        this.x = x;
+        this.y = y;
+        this.dx = dx;
+        this.dy = dy;
+    }
+
+    public void move() {
+        x += dx;
+        y += dy;
+    }
+}
+
+class PowerUp {
+    public double x, y;
+    public PowerUpType type;
+
+    public PowerUp(double x, double y, PowerUpType type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+    }
+
+    public void update() {
+    }
+}
+
+enum PowerUpType {
+    AIM_BEAM,
+    DOUBLE_SHOT,
+    BOOSTER,
+    RAPID_FIRE
+}
+
