@@ -1,5 +1,7 @@
 package com.fishinspace;
 
+import java.util.Vector;
+
 /**
  * AsteroidDestroyer.java
  *
@@ -41,6 +43,13 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     private static final int POWERUP_DURATION = 1200; // 20s @ 60fps
     private static final int POWERUP_DROP_MIN = 5;
     private static final int POWERUP_DROP_MAX = 10;
+    
+    // PowerUp types as int constants
+    private static final int POWERUP_NONE = 0;
+    private static final int POWERUP_AIM_BEAM = 1;
+    private static final int POWERUP_DOUBLE_SHOT = 2;
+    private static final int POWERUP_BOOSTER = 3;
+    private static final int POWERUP_RAPID_FIRE = 4;
 
     // --- Game State ---
     private javax.swing.Timer gameTimer;
@@ -51,10 +60,10 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     private boolean started; // false until user presses ENTER
     private boolean paused;  // toggled by P key
 
-    private java.util.List<PowerUp> powerUps;
+    private Vector powerUps;
     private int asteroidsDestroyedSinceLastPowerUp;
     private int asteroidsUntilNextPowerUp;
-    private PowerUpType activePowerUp;
+    private int activePowerUp;
     private int powerUpTimeRemaining;
 
     // --- Ship ---
@@ -69,8 +78,8 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     private boolean braking;
 
     // --- Objects ---
-    private java.util.List<Bullet> bullets;
-    private java.util.List<Asteroid> asteroids;
+    private Vector bullets;
+    private Vector asteroids;
     private int bulletCooldownTimer;
 
     public AsteroidDestroyer() {
@@ -80,9 +89,9 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
         addKeyListener(this);
 
         random = new java.util.Random();
-        bullets = new java.util.ArrayList<>();
-        asteroids = new java.util.ArrayList<>();
-        powerUps = new java.util.ArrayList<>();
+        bullets = new Vector();
+        asteroids = new Vector();
+        powerUps = new Vector();
 
         initGame();
         gameTimer = new javax.swing.Timer(16, this); // ~60 FPS
@@ -117,7 +126,7 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
 
         asteroidsDestroyedSinceLastPowerUp = 0;
         asteroidsUntilNextPowerUp = POWERUP_DROP_MIN + random.nextInt(POWERUP_DROP_MAX - POWERUP_DROP_MIN + 1);
-        activePowerUp = null;
+        activePowerUp = POWERUP_NONE;
         powerUpTimeRemaining = 0;
 
         if (gameTimer != null && !gameTimer.isRunning()) {
@@ -176,7 +185,7 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
         if (powerUpTimeRemaining > 0) {
             powerUpTimeRemaining--;
             if (powerUpTimeRemaining == 0) {
-                activePowerUp = null;
+                activePowerUp = POWERUP_NONE;
             }
         }
     }
@@ -186,14 +195,14 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
         if (rotatingRight) shipAngle += SHIP_TURN_SPEED;
 
         double thrustPower = SHIP_THRUST_POWER;
-        if (activePowerUp == PowerUpType.BOOSTER) {
+        if (activePowerUp == POWERUP_BOOSTER) {
             thrustPower *= 1.5;
         }
         if (thrusting) {
             shipVelX += Math.cos(shipAngle) * thrustPower;
             shipVelY += Math.sin(shipAngle) * thrustPower;
         }
-        if (braking && activePowerUp == PowerUpType.BOOSTER) {
+        if (braking && activePowerUp == POWERUP_BOOSTER) {
             shipVelX *= 0.9;
             shipVelY *= 0.9;
         }
@@ -203,15 +212,16 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
         shipX += shipVelX;
         shipY += shipVelY;
 
-        wrapCoordinates(shipX, shipY, newCoords -> {
-            shipX = newCoords[0];
-            shipY = newCoords[1];
-        });
+        // Wrap coordinates
+        if (shipX < 0) shipX = PANEL_WIDTH; 
+        else if (shipX > PANEL_WIDTH) shipX = 0;
+        if (shipY < 0) shipY = PANEL_HEIGHT; 
+        else if (shipY > PANEL_HEIGHT) shipY = 0;
     }
 
     private void updateBullets() {
         for (int i = bullets.size() - 1; i >= 0; i--) {
-            Bullet b = bullets.get(i);
+            Bullet b = (Bullet) bullets.get(i);
             b.move();
             if (b.x < 0 || b.x > PANEL_WIDTH || b.y < 0 || b.y > PANEL_HEIGHT) {
                 bullets.remove(i);
@@ -220,18 +230,20 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     }
 
     private void updateAsteroids() {
-        for (Asteroid a : asteroids) {
+        for (int i = 0; i < asteroids.size(); i++) {
+            Asteroid a = (Asteroid) asteroids.get(i);
             a.move();
-            wrapCoordinates(a.x, a.y, newCoords -> {
-                a.x = newCoords[0];
-                a.y = newCoords[1];
-            });
+            // Wrap coordinates
+            if (a.x < 0) a.x = PANEL_WIDTH; 
+            else if (a.x > PANEL_WIDTH) a.x = 0;
+            if (a.y < 0) a.y = PANEL_HEIGHT; 
+            else if (a.y > PANEL_HEIGHT) a.y = 0;
         }
     }
 
     private void updatePowerUps() {
         for (int i = powerUps.size() - 1; i >= 0; i--) {
-            PowerUp p = powerUps.get(i);
+            PowerUp p = (PowerUp) powerUps.get(i);
             p.update();
             double dist = Math.sqrt(Math.pow(shipX - p.x, 2) + Math.pow(shipY - p.y, 2));
             if (dist < (SHIP_SIZE + POWERUP_SIZE) / 2.0) {
@@ -242,24 +254,15 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
         }
     }
 
-    @FunctionalInterface
-    private interface CoordinateWrapper { void apply(double[] newCoords); }
-
-    private void wrapCoordinates(double x, double y, CoordinateWrapper wrapper) {
-        if (x < 0) x = PANEL_WIDTH; else if (x > PANEL_WIDTH) x = 0;
-        if (y < 0) y = PANEL_HEIGHT; else if (y > PANEL_HEIGHT) y = 0;
-        wrapper.apply(new double[]{x, y});
-    }
-
     private void fireBullet() {
         int cooldown = BULLET_COOLDOWN;
-        if (activePowerUp == PowerUpType.RAPID_FIRE) {
+        if (activePowerUp == POWERUP_RAPID_FIRE) {
             cooldown = (int) (BULLET_COOLDOWN / 1.5);
         }
         if (bulletCooldownTimer <= 0) {
             double dx = Math.cos(shipAngle) * BULLET_SPEED;
             double dy = Math.sin(shipAngle) * BULLET_SPEED;
-            if (activePowerUp == PowerUpType.DOUBLE_SHOT) {
+            if (activePowerUp == POWERUP_DOUBLE_SHOT) {
                 double offsetAngle = Math.PI / 16;
                 double leftAngle = shipAngle - offsetAngle;
                 double rightAngle = shipAngle + offsetAngle;
@@ -274,9 +277,9 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
 
     private void checkCollisions() {
         for (int i = bullets.size() - 1; i >= 0; i--) {
-            Bullet b = bullets.get(i);
+            Bullet b = (Bullet) bullets.get(i);
             for (int j = asteroids.size() - 1; j >= 0; j--) {
-                Asteroid a = asteroids.get(j);
+                Asteroid a = (Asteroid) asteroids.get(j);
                 double dist = Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
                 if (dist < a.size / 2.0) {
                     bullets.remove(i);
@@ -286,7 +289,7 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
             }
         }
         for (int i = asteroids.size() - 1; i >= 0; i--) {
-            Asteroid a = asteroids.get(i);
+            Asteroid a = (Asteroid) asteroids.get(i);
             double dist = Math.sqrt(Math.pow(shipX - a.x, 2) + Math.pow(shipY - a.y, 2));
             if (dist < (a.size / 2.0) + (SHIP_SIZE / 2.0)) {
                 inGame = false;
@@ -297,7 +300,7 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     }
 
     private void splitAsteroid(int asteroidIndex) {
-        Asteroid a = asteroids.remove(asteroidIndex);
+        Asteroid a = (Asteroid) asteroids.remove(asteroidIndex);
         if (a.size == ASTEROID_SIZE_LARGE) {
             score += SCORE_LARGE_ASTEROID;
             asteroids.add(new Asteroid(a.x, a.y, random.nextDouble() * 2 - 1, random.nextDouble() * 2 - 1, ASTEROID_SIZE_MEDIUM));
@@ -311,8 +314,8 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
         }
         asteroidsDestroyedSinceLastPowerUp++;
         if (asteroidsDestroyedSinceLastPowerUp >= asteroidsUntilNextPowerUp) {
-            PowerUpType[] types = PowerUpType.values();
-            PowerUpType randomType = types[random.nextInt(types.length)];
+            int[] types = {POWERUP_AIM_BEAM, POWERUP_DOUBLE_SHOT, POWERUP_BOOSTER, POWERUP_RAPID_FIRE};
+            int randomType = types[random.nextInt(types.length)];
             powerUps.add(new PowerUp(a.x, a.y, randomType));
             asteroidsDestroyedSinceLastPowerUp = 0;
             asteroidsUntilNextPowerUp = POWERUP_DROP_MIN + random.nextInt(POWERUP_DROP_MAX - POWERUP_DROP_MIN + 1);
@@ -381,7 +384,7 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     }
 
     private void drawAimBeam(java.awt.Graphics2D g2d) {
-        if (activePowerUp == PowerUpType.AIM_BEAM) {
+        if (activePowerUp == POWERUP_AIM_BEAM) {
             g2d.setColor(java.awt.Color.GREEN);
             java.awt.Stroke dashed = new java.awt.BasicStroke(1, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0);
             g2d.setStroke(dashed);
@@ -411,28 +414,40 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
 
     private void drawBullets(java.awt.Graphics2D g2d) {
         g2d.setColor(java.awt.Color.YELLOW);
-        for (Bullet b : bullets) {
+        for (int i = 0; i < bullets.size(); i++) {
+            Bullet b = (Bullet) bullets.get(i);
             g2d.fillOval((int) b.x - 2, (int) b.y - 2, 4, 4);
         }
     }
 
     private void drawAsteroids(java.awt.Graphics2D g2d) {
         g2d.setColor(java.awt.Color.GRAY);
-        for (Asteroid a : asteroids) {
+        for (int i = 0; i < asteroids.size(); i++) {
+            Asteroid a = (Asteroid) asteroids.get(i);
             g2d.drawOval((int) (a.x - a.size / 2.0), (int) (a.y - a.size / 2.0), a.size, a.size);
         }
     }
 
     private void drawPowerUps(java.awt.Graphics2D g2d) {
-        for (PowerUp p : powerUps) {
+        for (int i = 0; i < powerUps.size(); i++) {
+            PowerUp p = (PowerUp) powerUps.get(i);
             java.awt.Color color;
             String label;
-            switch (p.type) {
-                case AIM_BEAM: color = java.awt.Color.GREEN; label = "A"; break;
-                case DOUBLE_SHOT: color = java.awt.Color.BLUE; label = "D"; break;
-                case BOOSTER: color = java.awt.Color.ORANGE; label = "B"; break;
-                case RAPID_FIRE: color = java.awt.Color.RED; label = "R"; break;
-                default: color = java.awt.Color.WHITE; label = "?";
+            if (p.type == POWERUP_AIM_BEAM) {
+                color = java.awt.Color.GREEN; 
+                label = "A";
+            } else if (p.type == POWERUP_DOUBLE_SHOT) {
+                color = java.awt.Color.BLUE; 
+                label = "D";
+            } else if (p.type == POWERUP_BOOSTER) {
+                color = java.awt.Color.ORANGE; 
+                label = "B";
+            } else if (p.type == POWERUP_RAPID_FIRE) {
+                color = java.awt.Color.RED; 
+                label = "R";
+            } else {
+                color = java.awt.Color.WHITE; 
+                label = "?";
             }
             g2d.setColor(color);
             g2d.fillRect((int) (p.x - POWERUP_SIZE / 2), (int) (p.y - POWERUP_SIZE / 2), POWERUP_SIZE, POWERUP_SIZE);
@@ -453,16 +468,20 @@ public class AsteroidDestroyer extends javax.swing.JPanel implements java.awt.ev
     }
 
     private void drawActivePowerUp(java.awt.Graphics2D g2d) {
-        if (activePowerUp != null && powerUpTimeRemaining > 0) {
+        if (activePowerUp != POWERUP_NONE && powerUpTimeRemaining > 0) {
             g2d.setColor(java.awt.Color.WHITE);
             g2d.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 16));
             String name;
-            switch (activePowerUp) {
-                case AIM_BEAM: name = "AIM BEAM"; break;
-                case DOUBLE_SHOT: name = "DOUBLE SHOT"; break;
-                case BOOSTER: name = "BOOSTER"; break;
-                case RAPID_FIRE: name = "RAPID FIRE"; break;
-                default: name = ""; break;
+            if (activePowerUp == POWERUP_AIM_BEAM) {
+                name = "AIM BEAM";
+            } else if (activePowerUp == POWERUP_DOUBLE_SHOT) {
+                name = "DOUBLE SHOT";
+            } else if (activePowerUp == POWERUP_BOOSTER) {
+                name = "BOOSTER";
+            } else if (activePowerUp == POWERUP_RAPID_FIRE) {
+                name = "RAPID FIRE";
+            } else {
+                name = "";
             }
             int timeLeft = powerUpTimeRemaining / 60;
             g2d.drawString("PowerUp: " + name + " (" + timeLeft + "s)", 10, 50);
@@ -567,9 +586,9 @@ class Bullet {
 
 class PowerUp {
     public double x, y;
-    public PowerUpType type;
+    public int type;
 
-    public PowerUp(double x, double y, PowerUpType type) {
+    public PowerUp(double x, double y, int type) {
         this.x = x;
         this.y = y;
         this.type = type;
@@ -577,12 +596,5 @@ class PowerUp {
 
     public void update() {
     }
-}
-
-enum PowerUpType {
-    AIM_BEAM,
-    DOUBLE_SHOT,
-    BOOSTER,
-    RAPID_FIRE
 }
 
